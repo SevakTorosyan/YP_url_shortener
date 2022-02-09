@@ -7,5 +7,7 @@ import (
 
 func main() {
 	mux := &handlers.MyMux{}
+	mux.InitStorage()
+
 	http.ListenAndServe("localhost:8080", mux)
 }
