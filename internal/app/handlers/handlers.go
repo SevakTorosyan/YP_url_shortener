@@ -36,7 +36,7 @@ func (p *MyMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func getShortLink(w http.ResponseWriter, r *http.Request, s storage.Storage) {
-	id, err := utils.GetIdentifier(r)
+	id, err := utils.GetIdentifier(r.URL.Path)
 	if err != nil {
 		http.Error(w, "Произошла ошибка", http.StatusBadRequest)
 
