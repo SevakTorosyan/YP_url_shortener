@@ -1,15 +1,16 @@
-package slice
+package mapper
 
 import (
 	"fmt"
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/utils"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestStorageSlice_SaveItem(t *testing.T) {
 	type want struct {
-		id  int
-		err error
+		shortLink string
+		err       error
 	}
 
 	tests := []struct {
@@ -21,18 +22,19 @@ func TestStorageSlice_SaveItem(t *testing.T) {
 			name:  "Correct test",
 			value: "https://ya.ru",
 			want: want{
-				id:  0,
-				err: nil,
+				shortLink: utils.GenerateMockString(),
+				err:       nil,
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			storageSlice := &StorageSlice{}
+			storageMap := NewStorageMap()
+			shortLink := utils.GenerateMockString()
+			shortLink, err := storageMap.SaveItem(tt.value, shortLink)
 
-			id, err := storageSlice.SaveItem(tt.value)
-			assert.Equal(t, tt.want.id, id)
+			assert.Equal(t, tt.want.shortLink, shortLink)
 			assert.Equal(t, tt.want.err, err)
 		})
 	}
@@ -46,12 +48,12 @@ func TestStorageSlice_GetItem(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		value int
+		value string
 		want  want
 	}{
 		{
 			name:  "Correct test",
-			value: 0,
+			value: utils.GenerateMockString(),
 			want: want{
 				link: "https://ya.ru",
 				err:  nil,
@@ -59,20 +61,21 @@ func TestStorageSlice_GetItem(t *testing.T) {
 		},
 		{
 			name:  "Incorrect test",
-			value: 1,
+			value: "adfasdasd",
 			want: want{
 				link: "",
-				err:  fmt.Errorf("некорректный идентификатор"),
+				err:  fmt.Errorf("link not found"),
 			},
 		},
 	}
 
 	for _, tt := range tests {
-		storageSlice := &StorageSlice{}
-		storageSlice.SaveItem("https://ya.ru")
+		storageMap := NewStorageMap()
+		shortLink := utils.GenerateMockString()
+		storageMap.SaveItem("https://ya.ru", shortLink)
 
 		t.Run(tt.name, func(t *testing.T) {
-			link, err := storageSlice.GetItem(tt.value)
+			link, err := storageMap.GetItem(tt.value)
 			assert.Equal(t, tt.want.link, link)
 			assert.Equal(t, tt.want.err, err)
 		})

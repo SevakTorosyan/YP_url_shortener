@@ -2,48 +2,32 @@ package handlers
 
 import (
 	"fmt"
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage"
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/utils"
+	"github.com/go-chi/chi/v5"
 	"io"
 	"net/http"
-
-	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage"
-	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage/slice"
-	"github.com/SevakTorosyan/YP_url_shortener/internal/app/utils"
 )
 
-type MyMux struct {
-	s storage.Storage
+const shortLinkLength = 15
+const hostName = "localhost:8080"
+
+type Handler struct {
+	storage storage.Storage
+	*chi.Mux
 }
 
-// InitStorage временное решение пока нет DI
-func (p *MyMux) InitStorage() {
-	p.s = &slice.StorageSlice{}
+func NewHandler(storage storage.Storage) *Handler {
+	return &Handler{
+		storage,
+		chi.NewMux(),
+	}
 }
 
-func (p *MyMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == "/" && r.Method == http.MethodPost {
-		saveShortLink(w, r, p.s)
+func (h *Handler) GetShortLink(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "shortLink")
 
-		return
-	}
-
-	if r.Method == http.MethodGet {
-		getShortLink(w, r, p.s)
-
-		return
-	}
-
-	http.NotFound(w, r)
-}
-
-func getShortLink(w http.ResponseWriter, r *http.Request, s storage.Storage) {
-	id, err := utils.GetIdentifier(r.URL.Path)
-	if err != nil {
-		http.Error(w, "Произошла ошибка", http.StatusBadRequest)
-
-		return
-	}
-
-	originalLink, err := s.GetItem(id)
+	originalLink, err := h.storage.GetItem(id)
 	if err != nil {
 		http.Error(w, "Некорректный идентификатор", http.StatusBadRequest)
 
@@ -54,19 +38,21 @@ func getShortLink(w http.ResponseWriter, r *http.Request, s storage.Storage) {
 	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
-func saveShortLink(w http.ResponseWriter, r *http.Request, s storage.Storage) {
+func (h *Handler) SaveShortLink(w http.ResponseWriter, r *http.Request) {
 	b, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	linkID, err := s.SaveItem(string(b))
+	shortLink := utils.GenerateRandomString(shortLinkLength)
+	fmt.Println(shortLink)
+	_, err = h.storage.SaveItem(string(b), shortLink)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	fmt.Fprintf(w, "http://%s/%d", r.Host, linkID)
+	fmt.Fprintf(w, "http://%s/%s", hostName, shortLink)
 }

@@ -1,6 +1,6 @@
 package storage
 
 type Storage interface {
-	GetItem(linkID int) (string, error)
-	SaveItem(link string) (int, error)
+	GetItem(shortLink string) (string, error)
+	SaveItem(link, shortLink string) (string, error)
 }

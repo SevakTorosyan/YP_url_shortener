@@ -2,12 +2,16 @@ package main
 
 import (
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/handlers"
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage/mapper"
+	"log"
 	"net/http"
 )
 
 func main() {
-	mux := &handlers.MyMux{}
-	mux.InitStorage()
+	handler := handlers.NewHandler(mapper.NewStorageMap())
 
-	http.ListenAndServe("localhost:8080", mux)
+	handler.Get("/{shortLink}", handler.GetShortLink)
+	handler.Post("/", handler.SaveShortLink)
+
+	log.Fatal(http.ListenAndServe("localhost:8080", handler))
 }
