@@ -29,8 +29,7 @@ func (h *Handler) GetShortLink(w http.ResponseWriter, r *http.Request) {
 
 	originalLink, err := h.storage.GetItem(id)
 	if err != nil {
-		http.Error(w, "Некорректный идентификатор", http.StatusBadRequest)
-
+		http.Error(w, "Incorrect link", http.StatusBadRequest)
 		return
 	}
 
