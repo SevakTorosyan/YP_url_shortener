@@ -2,15 +2,14 @@ package handlers
 
 import (
 	"fmt"
-	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage"
-	"github.com/SevakTorosyan/YP_url_shortener/internal/app/utils"
-	"github.com/go-chi/chi/v5"
 	"io"
 	"net/http"
+
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage"
+	"github.com/go-chi/chi/v5"
 )
 
-const shortLinkLength = 15
-const hostName = "localhost:8080"
+const HostName = "localhost:8080"
 
 type Handler struct {
 	storage storage.Storage
@@ -29,8 +28,7 @@ func (h *Handler) GetShortLink(w http.ResponseWriter, r *http.Request) {
 
 	originalLink, err := h.storage.GetItem(id)
 	if err != nil {
-		http.Error(w, "Некорректный идентификатор", http.StatusBadRequest)
-
+		http.Error(w, "Incorrect link", http.StatusBadRequest)
 		return
 	}
 
@@ -45,14 +43,12 @@ func (h *Handler) SaveShortLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortLink := utils.GenerateRandomString(shortLinkLength)
-	fmt.Println(shortLink)
-	_, err = h.storage.SaveItem(string(b), shortLink)
+	shortLink, err := h.storage.SaveItem(string(b))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	fmt.Fprintf(w, "http://%s/%s", hostName, shortLink)
+	fmt.Fprintf(w, "http://%s/%s", HostName, shortLink)
 }

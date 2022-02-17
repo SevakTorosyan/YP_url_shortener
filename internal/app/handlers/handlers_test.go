@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage/mock"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -8,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage/mapper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -30,7 +30,7 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string, reqBody
 }
 
 func TestHandlers(t *testing.T) {
-	r := NewHandler(mapper.NewStorageMap())
+	r := NewHandler(mock.NewMockStorage())
 	r.Get("/{shortLink}", r.GetShortLink)
 	r.Post("/", r.SaveShortLink)
 
@@ -58,7 +58,7 @@ func TestHandlers(t *testing.T) {
 			name: "Short link creating",
 			want: want{
 				code:        http.StatusCreated,
-				response:    ts.URL + "/0",
+				response:    "http://" + HostName + "/" + mock.ShortLink,
 				contentType: "text/plain; charset=utf-8",
 			},
 			request: request{
@@ -70,13 +70,13 @@ func TestHandlers(t *testing.T) {
 		{
 			name: "Short link getting",
 			want: want{
-				code:        http.StatusBadRequest,
+				code:        http.StatusOK,
 				response:    "{\n  \"userId\": 1,\n  \"id\": 1,\n  \"title\": \"sunt aut facere repellat provident occaecati excepturi optio reprehenderit\",\n  \"body\": \"quia et suscipit\\nsuscipit recusandae consequuntur expedita et cum\\nreprehenderit molestiae ut ut quas totam\\nnostrum rerum est autem sunt rem eveniet architecto\"\n}",
-				contentType: "text/plain; charset=utf-8",
+				contentType: "application/json; charset=utf-8",
 			},
 			request: request{
 				method: http.MethodGet,
-				target: "/0",
+				target: "/" + mock.ShortLink,
 				body:   nil,
 			},
 		},
@@ -84,8 +84,9 @@ func TestHandlers(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, _ := testRequest(t, ts, tt.request.method, tt.request.target, tt.request.body)
+			resp, respBody := testRequest(t, ts, tt.request.method, tt.request.target, tt.request.body)
 
+			assert.Equal(t, tt.want.response, respBody)
 			assert.Equal(t, tt.want.code, resp.StatusCode)
 			assert.Equal(t, tt.want.contentType, resp.Header.Get("Content-Type"))
 

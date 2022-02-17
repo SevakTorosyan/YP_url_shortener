@@ -1,8 +1,7 @@
 package mapper
 
 import (
-	"fmt"
-	"github.com/SevakTorosyan/YP_url_shortener/internal/app/utils"
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage/mock"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -20,9 +19,9 @@ func TestStorageSlice_SaveItem(t *testing.T) {
 	}{
 		{
 			name:  "Correct test",
-			value: "https://ya.ru",
+			value: "https://jsonplaceholder.typicode.com/posts/1",
 			want: want{
-				shortLink: utils.GenerateMockString(),
+				shortLink: "asdjnd3242",
 				err:       nil,
 			},
 		},
@@ -30,9 +29,8 @@ func TestStorageSlice_SaveItem(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			storageMap := NewStorageMap()
-			shortLink := utils.GenerateMockString()
-			shortLink, err := storageMap.SaveItem(tt.value, shortLink)
+			storageMap := mock.StorageMock{}
+			shortLink, err := storageMap.SaveItem(tt.value)
 
 			assert.Equal(t, tt.want.shortLink, shortLink)
 			assert.Equal(t, tt.want.err, err)
@@ -53,26 +51,16 @@ func TestStorageSlice_GetItem(t *testing.T) {
 	}{
 		{
 			name:  "Correct test",
-			value: utils.GenerateMockString(),
+			value: "asdjnd3242",
 			want: want{
-				link: "https://ya.ru",
+				link: "https://jsonplaceholder.typicode.com/posts/1",
 				err:  nil,
-			},
-		},
-		{
-			name:  "Incorrect test",
-			value: "adfasdasd",
-			want: want{
-				link: "",
-				err:  fmt.Errorf("link not found"),
 			},
 		},
 	}
 
 	for _, tt := range tests {
-		storageMap := NewStorageMap()
-		shortLink := utils.GenerateMockString()
-		storageMap.SaveItem("https://ya.ru", shortLink)
+		storageMap := mock.NewMockStorage()
 
 		t.Run(tt.name, func(t *testing.T) {
 			link, err := storageMap.GetItem(tt.value)
