@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"fmt"
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/config"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage/mock"
 	"io"
 	"io/ioutil"
@@ -31,8 +33,6 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string, reqBody
 
 func TestHandlers(t *testing.T) {
 	r := NewHandler(mock.NewMockStorage())
-	r.Get("/{shortLink}", r.GetShortLink)
-	r.Post("/", r.SaveShortLink)
 
 	ts := httptest.NewServer(r)
 	defer ts.Close()
@@ -58,13 +58,26 @@ func TestHandlers(t *testing.T) {
 			name: "Short link creating",
 			want: want{
 				code:        http.StatusCreated,
-				response:    "http://" + HostName + "/" + mock.ShortLink,
+				response:    config.GetInstance().BaseURL + "/" + mock.ShortLink,
 				contentType: "text/plain; charset=utf-8",
 			},
 			request: request{
 				method: http.MethodPost,
 				target: "/",
 				body:   strings.NewReader("https://jsonplaceholder.typicode.com/posts/1"),
+			},
+		},
+		{
+			name: "Short link creating JSON",
+			want: want{
+				code:        http.StatusCreated,
+				response:    fmt.Sprintf("{\"result\":\"%s/asdjnd3242\"}\n", config.GetInstance().BaseURL),
+				contentType: "application/json; charset=utf-8",
+			},
+			request: request{
+				method: http.MethodPost,
+				target: "/api/shorten",
+				body:   strings.NewReader("{\"url\": \"https://jsonplaceholder.typicode.com/posts/1\"}"),
 			},
 		},
 		{

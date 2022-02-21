@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/config"
 	"io"
 	"net/http"
 
@@ -9,7 +11,13 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-const HostName = "localhost:8080"
+type Request struct {
+	URL string `json:"url"`
+}
+
+type Response struct {
+	Result string `json:"result"`
+}
 
 type Handler struct {
 	storage storage.Storage
@@ -17,10 +25,13 @@ type Handler struct {
 }
 
 func NewHandler(storage storage.Storage) *Handler {
-	return &Handler{
+	handler := &Handler{
 		storage,
 		chi.NewMux(),
 	}
+	handler.registerRoutes()
+
+	return handler
 }
 
 func (h *Handler) GetShortLink(w http.ResponseWriter, r *http.Request) {
@@ -50,5 +61,34 @@ func (h *Handler) SaveShortLink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	fmt.Fprintf(w, "http://%s/%s", HostName, shortLink)
+	fmt.Fprintf(w, "%s/%s", config.GetInstance().BaseURL, shortLink)
+}
+
+func (h *Handler) SaveShortLinkJSON(w http.ResponseWriter, r *http.Request) {
+	requestBody := Request{}
+
+	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	shortLink, err := h.storage.SaveItem(requestBody.URL)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(GetResponse(shortLink))
+}
+
+func (h *Handler) registerRoutes() {
+	h.Get("/{shortLink}", h.GetShortLink)
+	h.Post("/", h.SaveShortLink)
+	h.Post("/api/shorten", h.SaveShortLinkJSON)
+}
+
+func GetResponse(shortLink string) Response {
+	return Response{Result: fmt.Sprintf("%s/%s", config.GetInstance().BaseURL, shortLink)}
 }
