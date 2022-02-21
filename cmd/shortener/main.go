@@ -10,8 +10,5 @@ import (
 func main() {
 	handler := handlers.NewHandler(mapper.NewStorageMap())
 
-	handler.Get("/{shortLink}", handler.GetShortLink)
-	handler.Post("/", handler.SaveShortLink)
-
 	log.Fatal(http.ListenAndServe("localhost:8080", handler))
 }

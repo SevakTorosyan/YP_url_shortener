@@ -31,8 +31,6 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string, reqBody
 
 func TestHandlers(t *testing.T) {
 	r := NewHandler(mock.NewMockStorage())
-	r.Get("/{shortLink}", r.GetShortLink)
-	r.Post("/", r.SaveShortLink)
 
 	ts := httptest.NewServer(r)
 	defer ts.Close()
@@ -65,6 +63,19 @@ func TestHandlers(t *testing.T) {
 				method: http.MethodPost,
 				target: "/",
 				body:   strings.NewReader("https://jsonplaceholder.typicode.com/posts/1"),
+			},
+		},
+		{
+			name: "Short link creating JSON",
+			want: want{
+				code:        http.StatusCreated,
+				response:    "{\"result\":\"http://localhost:8080/asdjnd3242\"}\n",
+				contentType: "application/json; charset=utf-8",
+			},
+			request: request{
+				method: http.MethodPost,
+				target: "/api/shorten",
+				body:   strings.NewReader("{\"url\": \"https://jsonplaceholder.typicode.com/posts/1\"}"),
 			},
 		},
 		{
