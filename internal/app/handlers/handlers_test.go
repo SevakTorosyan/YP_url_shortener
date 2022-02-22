@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"fmt"
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/config"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage/mock"
 	"io"
 	"io/ioutil"
@@ -56,7 +58,7 @@ func TestHandlers(t *testing.T) {
 			name: "Short link creating",
 			want: want{
 				code:        http.StatusCreated,
-				response:    "http://" + HostName + "/" + mock.ShortLink,
+				response:    config.GetInstance().BaseURL + "/" + mock.ShortLink,
 				contentType: "text/plain; charset=utf-8",
 			},
 			request: request{
@@ -69,7 +71,7 @@ func TestHandlers(t *testing.T) {
 			name: "Short link creating JSON",
 			want: want{
 				code:        http.StatusCreated,
-				response:    "{\"result\":\"http://localhost:8080/asdjnd3242\"}\n",
+				response:    fmt.Sprintf("{\"result\":\"%s/asdjnd3242\"}\n", config.GetInstance().BaseURL),
 				contentType: "application/json; charset=utf-8",
 			},
 			request: request{

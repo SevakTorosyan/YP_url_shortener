@@ -3,14 +3,13 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/config"
 	"io"
 	"net/http"
 
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage"
 	"github.com/go-chi/chi/v5"
 )
-
-const HostName = "localhost:8080"
 
 type Request struct {
 	URL string `json:"url"`
@@ -62,7 +61,7 @@ func (h *Handler) SaveShortLink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	fmt.Fprintf(w, "http://%s/%s", HostName, shortLink)
+	fmt.Fprintf(w, "%s/%s", config.GetInstance().BaseURL, shortLink)
 }
 
 func (h *Handler) SaveShortLinkJSON(w http.ResponseWriter, r *http.Request) {
@@ -91,5 +90,5 @@ func (h *Handler) registerRoutes() {
 }
 
 func GetResponse(shortLink string) Response {
-	return Response{Result: "http://" + HostName + "/" + shortLink}
+	return Response{Result: fmt.Sprintf("%s/%s", config.GetInstance().BaseURL, shortLink)}
 }
