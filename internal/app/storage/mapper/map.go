@@ -2,10 +2,9 @@ package mapper
 
 import (
 	"fmt"
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/config"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/utils"
 )
-
-const shortLinkLength = 15
 
 type StorageMap struct {
 	links map[string]string
@@ -26,7 +25,7 @@ func (s StorageMap) GetItem(shortLink string) (string, error) {
 }
 
 func (s *StorageMap) SaveItem(link string) (string, error) {
-	shortLink := utils.GenerateRandomString(shortLinkLength)
+	shortLink := utils.GenerateRandomString(config.GetInstance().ShortLinkLength)
 	s.links[shortLink] = link
 
 	return shortLink, nil
