@@ -1,6 +1,7 @@
 package config
 
 import (
+	"flag"
 	"log"
 	"sync"
 
@@ -18,13 +19,19 @@ type config struct {
 
 var configInstance *config
 
-func InitConfig() *config {
+func initConfig() *config {
 	configInstance = &config{}
 
 	err := env.Parse(configInstance)
+
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	flag.StringVar(&configInstance.ServerAddress, "a", configInstance.ServerAddress, "Server address")
+	flag.StringVar(&configInstance.BaseURL, "b", configInstance.BaseURL, "Base URL")
+	flag.StringVar(&configInstance.FileStoragePath, "f", configInstance.FileStoragePath, "File storage path")
+	flag.Parse()
 
 	return configInstance
 }
@@ -34,7 +41,7 @@ func GetInstance() *config {
 		lock.Lock()
 		defer lock.Unlock()
 
-		return InitConfig()
+		return initConfig()
 	}
 
 	return configInstance

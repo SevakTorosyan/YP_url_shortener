@@ -19,7 +19,7 @@ func main() {
 		storage, err := file.NewStorageFile(cfg.FileStoragePath)
 
 		if err != nil {
-			panic(err)
+			log.Fatal("An error occurred during storage initialization")
 		}
 		handler = handlers.NewHandler(storage)
 	}
