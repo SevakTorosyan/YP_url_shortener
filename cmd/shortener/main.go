@@ -10,18 +10,18 @@ import (
 )
 
 func main() {
-	cfg := config.GetInstance()
+	cfg := config.InitConfig()
 	var handler *handlers.Handler
 
 	if cfg.FileStoragePath == "" {
-		handler = handlers.NewHandler(mapper.NewStorageMap())
+		handler = handlers.NewHandler(mapper.NewStorageMap(), cfg)
 	} else {
 		storage, err := file.NewStorageFile(cfg.FileStoragePath)
 
 		if err != nil {
 			log.Fatal("An error occurred during storage initialization")
 		}
-		handler = handlers.NewHandler(storage)
+		handler = handlers.NewHandler(storage, cfg)
 	}
 
 	log.Fatal(http.ListenAndServe(cfg.ServerAddress, handler))

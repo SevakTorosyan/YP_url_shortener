@@ -2,31 +2,45 @@ package mapper
 
 import (
 	"fmt"
-	"github.com/SevakTorosyan/YP_url_shortener/internal/app/config"
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/auth"
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/utils"
 )
 
 type StorageMap struct {
-	links map[string]string
+	links map[string]storage.ItemRepository
 }
 
 func NewStorageMap() *StorageMap {
-	return &StorageMap{links: make(map[string]string)}
+	return &StorageMap{links: make(map[string]storage.ItemRepository)}
 }
 
-func (s StorageMap) GetItem(shortLink string) (string, error) {
-	link, ok := s.links[shortLink]
+func (s StorageMap) GetItem(shortLink string) (storage.ItemRepository, error) {
+	item, ok := s.links[shortLink]
 
 	if !ok {
-		return "", fmt.Errorf("link not found")
+		return storage.ItemRepository{}, fmt.Errorf("link not found")
 	}
 
-	return link, nil
+	return item, nil
 }
 
-func (s *StorageMap) SaveItem(link string) (string, error) {
-	shortLink := utils.GenerateRandomString(config.GetInstance().ShortLinkLength)
-	s.links[shortLink] = link
+func (s *StorageMap) SaveItem(originalURL string, user auth.User) (storage.ItemRepository, error) {
+	shortURL := utils.GenerateRandomString(15)
+	item := storage.ItemRepository{ShortURL: shortURL, OriginalURL: originalURL, User: user}
+	s.links[shortURL] = item
 
-	return shortLink, nil
+	return item, nil
+}
+
+func (s *StorageMap) GetItemsByUserID(serverAddress string, user auth.User) ([]storage.ItemRepository, error) {
+	items := make([]storage.ItemRepository, 0)
+
+	for shortLink, item := range s.links {
+		if item.User.ID == user.ID {
+			items = append(items, storage.ItemRepository{ShortURL: serverAddress + shortLink, OriginalURL: item.OriginalURL})
+		}
+	}
+
+	return items, nil
 }

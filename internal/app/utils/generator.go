@@ -21,3 +21,10 @@ func stringWithCharset(length int, charset string) string {
 func GenerateRandomString(length int) string {
 	return stringWithCharset(length, charset)
 }
+
+func GenerateRandom(length int) []byte {
+	b := make([]byte, length)
+	rand.Read(b)
+
+	return b
+}
