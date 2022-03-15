@@ -12,6 +12,7 @@ type Config struct {
 	FileStoragePath string `env:"FILE_STORAGE_PATH"`
 	ShortLinkLength int    `env:"SHORT_LINK_LENGTH" envDefault:"15"`
 	SecretKey       string `env:"SECRET_KEY" envDefault:"52fdfc072182654f163f5f0f9a621d72"`
+	DatabaseDSN     string `env:"DATABASE_DSN"`
 }
 
 func InitConfig() *Config {
@@ -26,6 +27,7 @@ func InitConfig() *Config {
 	flag.StringVar(&configInstance.ServerAddress, "a", configInstance.ServerAddress, "Server address")
 	flag.StringVar(&configInstance.BaseURL, "b", configInstance.BaseURL, "Base URL")
 	flag.StringVar(&configInstance.FileStoragePath, "f", configInstance.FileStoragePath, "File storage path")
+	flag.StringVar(&configInstance.DatabaseDSN, "d", configInstance.DatabaseDSN, "Database connection properties")
 	flag.Parse()
 
 	return configInstance

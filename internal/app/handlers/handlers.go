@@ -10,6 +10,7 @@ import (
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v4"
 	"io"
 	"net/http"
 )
@@ -126,11 +127,25 @@ func (h *Handler) GetAllItems(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(viewItems)
 }
 
+func (h *Handler) PingDB(w http.ResponseWriter, r *http.Request) {
+	conn, err := pgx.Connect(r.Context(), h.config.DatabaseDSN)
+	if err != nil {
+		http.Error(w, "can't connect to DB", http.StatusInternalServerError)
+
+		return
+	}
+
+	defer conn.Close(r.Context())
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func (h *Handler) registerRoutes() {
 	h.Get("/{shortLink}", h.GetShortLink)
 	h.Post("/", h.SaveShortLink)
 	h.Post("/api/shorten", h.SaveShortLinkJSON)
 	h.Get("/api/user/urls", h.GetAllItems)
+	h.Get("/ping", h.PingDB)
 }
 
 func GetResponse(itemView storage.ItemView, baseURL string) Response {
