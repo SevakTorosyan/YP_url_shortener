@@ -2,7 +2,6 @@ package auth
 
 import (
 	"crypto/aes"
-	"encoding/hex"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/utils"
 )
 
@@ -11,7 +10,7 @@ type User struct {
 }
 
 func GenerateIdentifier() string {
-	return hex.EncodeToString(utils.GenerateRandom(8))
+	return utils.GenerateRandomString(16)
 }
 
 func NewUser() User {

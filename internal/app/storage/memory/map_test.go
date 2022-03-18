@@ -1,4 +1,4 @@
-package mapper
+package memory
 
 import (
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/auth"

@@ -130,7 +130,7 @@ func (h *Handler) GetAllItems(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) PingDB(w http.ResponseWriter, r *http.Request) {
 	conn, err := pgx.Connect(r.Context(), h.config.DatabaseDSN)
 	if err != nil {
-		http.Error(w, "can't connect to DB", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 
 		return
 	}
