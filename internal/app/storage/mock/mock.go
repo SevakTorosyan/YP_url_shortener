@@ -1,6 +1,7 @@
 package mock
 
 import (
+	"context"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/auth"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage"
 )
@@ -32,4 +33,8 @@ func (s *StorageMock) GetItemsByUserID(serverAddress string, user auth.User) ([]
 			OriginalURL: "https://vk.com",
 		},
 	}, nil
+}
+
+func (s *StorageMock) SaveBatch(batch []storage.BatchRequest, user auth.User, ctx context.Context) ([]storage.ItemRepository, error) {
+	return []storage.ItemRepository{}, nil
 }
