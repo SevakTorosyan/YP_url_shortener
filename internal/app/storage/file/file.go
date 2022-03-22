@@ -1,6 +1,7 @@
 package file
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/auth"
@@ -62,6 +63,10 @@ func (s *StorageFile) GetItemsByUserID(serverAddress string, user auth.User) ([]
 	}
 
 	return items, nil
+}
+
+func (s *StorageFile) SaveBatch(batch []storage.BatchRequest, user auth.User, ctx context.Context) ([]storage.ItemRepository, error) {
+	return []storage.ItemRepository{}, fmt.Errorf("method is not supported")
 }
 
 func (s *StorageFile) loadItems() {

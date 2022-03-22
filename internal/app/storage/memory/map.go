@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"context"
 	"fmt"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/auth"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage"
@@ -43,4 +44,8 @@ func (s *StorageMap) GetItemsByUserID(serverAddress string, user auth.User) ([]s
 	}
 
 	return items, nil
+}
+
+func (s *StorageMap) SaveBatch(batch []storage.BatchRequest, user auth.User, ctx context.Context) ([]storage.ItemRepository, error) {
+	return []storage.ItemRepository{}, fmt.Errorf("method is not supported")
 }
