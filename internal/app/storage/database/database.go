@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"fmt"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/auth"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/utils"
@@ -81,4 +82,54 @@ func (s StorageDatabase) GetItemsByUserID(serverAddress string, user auth.User) 
 	}
 
 	return items, nil
+}
+
+func (s *StorageDatabase) SaveBatch(batch []storage.BatchRequest, user auth.User, ctx context.Context) ([]storage.ItemRepository, error) {
+	var itemRepository storage.ItemRepository
+	items := make([]storage.ItemRepository, 0, len(batch))
+	for _, item := range batch {
+		itemRepository = storage.ItemRepository{OriginalURL: item.OriginalURL, CorrelationID: item.CorrelationID}
+		itemRepository.User = user
+		itemRepository.ShortURL = utils.GenerateRandomString(16)
+		items = append(items, itemRepository)
+	}
+	conn, err := pgx.Connect(ctx, s.dbDSN)
+	if err != nil {
+		fmt.Println(err.Error())
+
+		return nil, err
+	}
+	defer conn.Close(ctx)
+	if err = insertItems(ctx, conn, items); err != nil {
+		fmt.Println(err.Error())
+
+		return nil, err
+	}
+
+	return items, nil
+}
+
+func insertItems(ctx context.Context, conn *pgx.Conn, items []storage.ItemRepository) error {
+	b := &pgx.Batch{}
+
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback(ctx)
+
+	for _, item := range items {
+		sqlStatement := `INSERT INTO public.urls (original_url, short_url, user_id, correlation_id) VALUES ($1, $2, $3, $4)`
+		b.Queue(sqlStatement, item.OriginalURL, item.ShortURL, item.User.ID, item.CorrelationID)
+	}
+
+	batchResults := tx.SendBatch(ctx, b)
+	_, err = batchResults.Exec()
+	if err != nil {
+		return err
+	}
+	batchResults.Close()
+
+	return tx.Commit(ctx)
 }

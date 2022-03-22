@@ -140,9 +140,35 @@ func (h *Handler) PingDB(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func (h *Handler) SaveBatch(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value(myMiddleware.UserCtxValue).(auth.User)
+	batchRequests := make([]storage.BatchRequest, 0)
+
+	if err := json.NewDecoder(r.Body).Decode(&batchRequests); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	items, err := h.storage.SaveBatch(batchRequests, user, r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	viewItems := make([]storage.BatchItemView, 0)
+	for _, item := range items {
+		viewItems = append(viewItems, item.ToBatchItemView(h.config.BaseURL))
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(viewItems)
+}
+
 func (h *Handler) registerRoutes() {
 	h.Get("/{shortLink}", h.GetShortLink)
 	h.Post("/", h.SaveShortLink)
+	h.Post("/api/shorten/batch", h.SaveBatch)
 	h.Post("/api/shorten", h.SaveShortLinkJSON)
 	h.Get("/api/user/urls", h.GetAllItems)
 	h.Get("/ping", h.PingDB)
