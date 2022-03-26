@@ -3,11 +3,13 @@ package handlers
 import (
 	"compress/flate"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/auth"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/config"
 	myMiddleware "github.com/SevakTorosyan/YP_url_shortener/internal/app/middleware"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage"
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage/database"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v4"
@@ -70,14 +72,18 @@ func (h *Handler) SaveShortLink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	item, err := h.storage.SaveItem(string(b), user)
-	if err != nil {
+	if err != nil && !errors.Is(err, database.ErrItemAlreadyExists) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	itemView := item.ToItemView()
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusCreated)
+	if errors.Is(err, database.ErrItemAlreadyExists) {
+		w.WriteHeader(http.StatusConflict)
+	} else {
+		w.WriteHeader(http.StatusCreated)
+	}
 	fmt.Fprintf(w, "%s/%s", h.config.BaseURL, itemView.ShortURL)
 }
 
@@ -91,14 +97,18 @@ func (h *Handler) SaveShortLinkJSON(w http.ResponseWriter, r *http.Request) {
 	}
 
 	item, err := h.storage.SaveItem(requestBody.URL, user)
-	if err != nil {
+	if err != nil && !errors.Is(err, database.ErrItemAlreadyExists) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	itemView := item.ToItemView()
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(http.StatusCreated)
+	if errors.Is(err, database.ErrItemAlreadyExists) {
+		w.WriteHeader(http.StatusConflict)
+	} else {
+		w.WriteHeader(http.StatusCreated)
+	}
 	json.NewEncoder(w).Encode(GetResponse(itemView, h.config.BaseURL))
 }
 

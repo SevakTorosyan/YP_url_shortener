@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/auth"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage"
@@ -9,6 +10,8 @@ import (
 	"github.com/jackc/pgx/v4"
 	"time"
 )
+
+var ErrItemAlreadyExists = errors.New("item already exists")
 
 type StorageDatabase struct {
 	dbDSN string
@@ -47,9 +50,17 @@ func (s StorageDatabase) SaveItem(originalURL string, user auth.User) (storage.I
 		return storage.ItemRepository{}, err
 	}
 	defer conn.Close(ctx)
-	_, err = conn.Exec(ctx, "INSERT INTO public.urls (original_url, short_url, user_id) VALUES ($1, $2, $3)", item.OriginalURL, item.ShortURL, item.User.ID)
+	cmdTag, err := conn.Exec(ctx, "INSERT INTO public.urls (original_url, short_url, user_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING", item.OriginalURL, item.ShortURL, item.User.ID)
 	if err != nil {
 		return storage.ItemRepository{}, err
+	}
+	if cmdTag.RowsAffected() == 0 {
+		item, err = s.getByOriginalURL(originalURL)
+		if err != nil {
+			return storage.ItemRepository{}, err
+		}
+
+		return item, ErrItemAlreadyExists
 	}
 
 	return item, nil
@@ -132,4 +143,23 @@ func insertItems(ctx context.Context, conn *pgx.Conn, items []storage.ItemReposi
 	batchResults.Close()
 
 	return tx.Commit(ctx)
+}
+
+func (s StorageDatabase) getByOriginalURL(originalURL string) (storage.ItemRepository, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	conn, err := pgx.Connect(ctx, s.dbDSN)
+	if err != nil {
+		return storage.ItemRepository{}, err
+	}
+	defer conn.Close(ctx)
+
+	row := conn.QueryRow(context.Background(), "SELECT u.short_url, u.original_url, u.user_id FROM urls u WHERE original_url = $1", originalURL)
+	item := storage.ItemRepository{}
+	err = row.Scan(&item.ShortURL, &item.OriginalURL, &item.User.ID)
+	if err != nil {
+		return storage.ItemRepository{}, err
+	}
+
+	return item, nil
 }

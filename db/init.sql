@@ -14,3 +14,6 @@ create unique index if not exists urls_short_url_uindex
 
 create unique index if not exists urls_correlation_id_uindex
     on urls (correlation_id);
+
+create unique index if not exists urls_original_url_uindex
+    on urls (original_url);
