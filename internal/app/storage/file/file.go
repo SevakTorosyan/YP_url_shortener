@@ -65,7 +65,7 @@ func (s *StorageFile) GetItemsByUserID(serverAddress string, user auth.User) ([]
 	return items, nil
 }
 
-func (s *StorageFile) SaveBatch(batch []storage.BatchRequest, user auth.User, ctx context.Context) ([]storage.ItemRepository, error) {
+func (s *StorageFile) SaveBatch(ctx context.Context, batch []storage.BatchRequest, user auth.User) ([]storage.ItemRepository, error) {
 	return []storage.ItemRepository{}, fmt.Errorf("method is not supported")
 }
 
@@ -82,4 +82,12 @@ func (s *StorageFile) loadItems() {
 
 		s.items[item.ShortURL] = *item
 	}
+}
+
+func (s StorageFile) Ping() error {
+	return nil
+}
+
+func (s StorageFile) Close() error {
+	return s.file.Close()
 }

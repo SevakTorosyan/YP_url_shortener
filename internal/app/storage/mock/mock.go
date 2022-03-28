@@ -12,6 +12,18 @@ const UserID = "sdfmsdkfmf34"
 
 type StorageMock struct{}
 
+func (s StorageMock) SaveBatch(ctx context.Context, batch []storage.BatchRequest, user auth.User) ([]storage.ItemRepository, error) {
+	return []storage.ItemRepository{}, nil
+}
+
+func (s StorageMock) Ping() error {
+	return nil
+}
+
+func (s StorageMock) Close() error {
+	return nil
+}
+
 func NewMockStorage() *StorageMock {
 	return &StorageMock{}
 }
@@ -33,8 +45,4 @@ func (s *StorageMock) GetItemsByUserID(serverAddress string, user auth.User) ([]
 			OriginalURL: "https://vk.com",
 		},
 	}, nil
-}
-
-func (s *StorageMock) SaveBatch(batch []storage.BatchRequest, user auth.User, ctx context.Context) ([]storage.ItemRepository, error) {
-	return []storage.ItemRepository{}, nil
 }

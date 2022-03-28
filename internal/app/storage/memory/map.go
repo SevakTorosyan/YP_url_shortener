@@ -46,6 +46,14 @@ func (s *StorageMap) GetItemsByUserID(serverAddress string, user auth.User) ([]s
 	return items, nil
 }
 
-func (s *StorageMap) SaveBatch(batch []storage.BatchRequest, user auth.User, ctx context.Context) ([]storage.ItemRepository, error) {
+func (s *StorageMap) SaveBatch(ctx context.Context, batch []storage.BatchRequest, user auth.User) ([]storage.ItemRepository, error) {
 	return []storage.ItemRepository{}, fmt.Errorf("method is not supported")
+}
+
+func (s StorageMap) Ping() error {
+	return nil
+}
+
+func (s StorageMap) Close() error {
+	return nil
 }

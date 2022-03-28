@@ -23,7 +23,7 @@ func Login(secretKey string) func(next http.Handler) http.Handler {
 				user = auth.NewUser()
 				cookie, err := createAuthCookie(user, secretKey)
 				if err != nil {
-					http.Error(w, "can't set cookie", http.StatusBadRequest)
+					http.Error(w, "can't set cookie", http.StatusInternalServerError)
 				}
 				http.SetCookie(w, cookie)
 			} else {

@@ -19,8 +19,9 @@ import (
 func main() {
 	cfg := config.InitConfig()
 
-	handler := handlers.NewHandler(initStorage(cfg), cfg)
-
+	s := initStorage(cfg)
+	defer s.Close()
+	handler := handlers.NewHandler(s, cfg)
 	log.Fatal(http.ListenAndServe(cfg.ServerAddress, handler))
 }
 
@@ -53,7 +54,7 @@ func initDatabase(databaseURL string) {
 func initStorage(cfg *config.Config) storage.Storage {
 	if cfg.DatabaseDSN != "" {
 		initDatabase(cfg.DatabaseDSN)
-		stg, err := database.NewStorageDatabase(cfg.DatabaseDSN)
+		stg, err := database.NewStorageDatabase(time.Duration(cfg.DatabaseTimeout)*time.Second, cfg.DatabaseDSN)
 		if err != nil {
 			log.Fatal(err)
 		}

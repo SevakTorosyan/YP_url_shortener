@@ -12,7 +12,6 @@ import (
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage/database"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/jackc/pgx/v4"
 	"io"
 	"net/http"
 )
@@ -64,7 +63,12 @@ func (h *Handler) GetShortLink(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) SaveShortLink(w http.ResponseWriter, r *http.Request) {
-	user := r.Context().Value(myMiddleware.UserCtxValue).(auth.User)
+	user, ok := r.Context().Value(myMiddleware.UserCtxValue).(auth.User)
+	if !ok {
+		http.Error(w, "can not define user", http.StatusInternalServerError)
+		return
+	}
+
 	b, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -88,7 +92,11 @@ func (h *Handler) SaveShortLink(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) SaveShortLinkJSON(w http.ResponseWriter, r *http.Request) {
-	user := r.Context().Value(myMiddleware.UserCtxValue).(auth.User)
+	user, ok := r.Context().Value(myMiddleware.UserCtxValue).(auth.User)
+	if !ok {
+		http.Error(w, "can not define user", http.StatusInternalServerError)
+		return
+	}
 	requestBody := Request{}
 
 	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
@@ -113,7 +121,12 @@ func (h *Handler) SaveShortLinkJSON(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetAllItems(w http.ResponseWriter, r *http.Request) {
-	user := r.Context().Value(myMiddleware.UserCtxValue).(auth.User)
+	user, ok := r.Context().Value(myMiddleware.UserCtxValue).(auth.User)
+	if !ok {
+		http.Error(w, "can not define user", http.StatusInternalServerError)
+		return
+	}
+
 	items, err := h.storage.GetItemsByUserID(h.config.BaseURL+"/", user)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -138,20 +151,22 @@ func (h *Handler) GetAllItems(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) PingDB(w http.ResponseWriter, r *http.Request) {
-	conn, err := pgx.Connect(r.Context(), h.config.DatabaseDSN)
+	err := h.storage.Ping()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 
 		return
 	}
 
-	defer conn.Close(r.Context())
-
 	w.WriteHeader(http.StatusOK)
 }
 
 func (h *Handler) SaveBatch(w http.ResponseWriter, r *http.Request) {
-	user := r.Context().Value(myMiddleware.UserCtxValue).(auth.User)
+	user, ok := r.Context().Value(myMiddleware.UserCtxValue).(auth.User)
+	if !ok {
+		http.Error(w, "can not define user", http.StatusInternalServerError)
+		return
+	}
 	batchRequests := make([]storage.BatchRequest, 0)
 
 	if err := json.NewDecoder(r.Body).Decode(&batchRequests); err != nil {
@@ -159,7 +174,7 @@ func (h *Handler) SaveBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, err := h.storage.SaveBatch(batchRequests, user, r.Context())
+	items, err := h.storage.SaveBatch(r.Context(), batchRequests, user)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

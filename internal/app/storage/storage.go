@@ -33,7 +33,9 @@ type Storage interface {
 	GetItem(shortURL string) (ItemRepository, error)
 	SaveItem(originalURL string, user auth.User) (ItemRepository, error)
 	GetItemsByUserID(serverAddress string, user auth.User) ([]ItemRepository, error)
-	SaveBatch(batch []BatchRequest, user auth.User, ctx context.Context) ([]ItemRepository, error)
+	SaveBatch(ctx context.Context, batch []BatchRequest, user auth.User) ([]ItemRepository, error)
+	Ping() error
+	Close() error
 }
 
 func (ir ItemRepository) ToItemView() ItemView {
