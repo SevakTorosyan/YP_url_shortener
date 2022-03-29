@@ -10,6 +10,7 @@ type ItemView struct {
 	OriginalURL   string    `json:"original_url"`
 	User          auth.User `json:"-"`
 	CorrelationID string    `json:"-"`
+	IsDeleted     bool      `json:"-"`
 }
 
 type ItemRepository struct {
@@ -17,6 +18,7 @@ type ItemRepository struct {
 	OriginalURL   string    `json:"original_url"`
 	User          auth.User `json:"user"`
 	CorrelationID string    `json:"correlation_id"`
+	IsDeleted     bool      `json:"is_deleted"`
 }
 
 type BatchItemView struct {
@@ -34,6 +36,7 @@ type Storage interface {
 	SaveItem(originalURL string, user auth.User) (ItemRepository, error)
 	GetItemsByUserID(serverAddress string, user auth.User) ([]ItemRepository, error)
 	SaveBatch(ctx context.Context, batch []BatchRequest, user auth.User) ([]ItemRepository, error)
+	DeleteByIds(ctx context.Context, batch []string, user auth.User) error
 	Ping() error
 	Close() error
 }

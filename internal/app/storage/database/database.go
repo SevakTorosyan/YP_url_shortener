@@ -3,10 +3,12 @@ package database
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/auth"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/utils"
 	"github.com/jackc/pgx/v4"
+	"sync"
 	"time"
 )
 
@@ -31,9 +33,9 @@ func NewStorageDatabase(timeout time.Duration, dbDSN string) (*StorageDatabase, 
 func (s StorageDatabase) GetItem(shortURL string) (storage.ItemRepository, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), s.connTimeout)
 	defer cancel()
-	row := s.conn.QueryRow(ctx, "SELECT u.short_url, u.original_url, u.user_id FROM urls u WHERE short_url = $1", shortURL)
+	row := s.conn.QueryRow(ctx, "SELECT u.short_url, u.original_url, u.user_id, u.is_deleted FROM urls u WHERE short_url = $1", shortURL)
 	item := storage.ItemRepository{}
-	err := row.Scan(&item.ShortURL, &item.OriginalURL, &item.User.ID)
+	err := row.Scan(&item.ShortURL, &item.OriginalURL, &item.User.ID, &item.IsDeleted)
 	if err != nil {
 		return storage.ItemRepository{}, err
 	}
@@ -154,4 +156,68 @@ func (s StorageDatabase) Close() error {
 	defer cancel()
 
 	return s.conn.Close(ctx)
+}
+
+func (s StorageDatabase) DeleteByIds(ctx context.Context, batchItems []string, user auth.User) error {
+	workerChs := make([]chan string, 0, len(batchItems))
+	for _, itemID := range batchItems {
+		w := s.createSQLForDeleteItem(itemID)
+		workerChs = append(workerChs, w)
+	}
+
+	tx, err := s.conn.Begin(ctx)
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback(ctx)
+	batch := <-s.createBatchForDeleteItems(user, workerChs...)
+
+	batchResults := tx.SendBatch(ctx, batch)
+	_, err = batchResults.Exec()
+	if err != nil {
+		return err
+	}
+	batchResults.Close()
+
+	return tx.Commit(ctx)
+}
+
+func (s StorageDatabase) createSQLForDeleteItem(itemID string) chan string {
+	sqlRow := make(chan string)
+
+	go func() {
+		sqlStatement := fmt.Sprintf("UPDATE urls SET is_deleted = true WHERE user_id = $1 AND short_url = '%s'", itemID)
+		sqlRow <- sqlStatement
+
+		close(sqlRow)
+	}()
+
+	return sqlRow
+}
+
+func (s StorageDatabase) createBatchForDeleteItems(user auth.User, rows ...chan string) chan *pgx.Batch {
+	batch := &pgx.Batch{}
+	sqlBatch := make(chan *pgx.Batch)
+
+	go func() {
+		wg := &sync.WaitGroup{}
+		for _, row := range rows {
+			wg.Add(1)
+
+			go func(inputCh chan string) {
+				defer wg.Done()
+				for item := range inputCh {
+					batch.Queue(item, user.ID)
+				}
+			}(row)
+		}
+
+		wg.Wait()
+		sqlBatch <- batch
+
+		close(sqlBatch)
+	}()
+
+	return sqlBatch
 }

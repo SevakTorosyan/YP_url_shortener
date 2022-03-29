@@ -6,7 +6,8 @@ create table if not exists urls
     original_url varchar(255) not null,
     short_url varchar(50),
     user_id varchar(50),
-    correlation_id varchar(100)
+    correlation_id varchar(100),
+    is_deleted boolean default false not null
     );
 
 create unique index if not exists urls_short_url_uindex

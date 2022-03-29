@@ -91,3 +91,7 @@ func (s StorageFile) Ping() error {
 func (s StorageFile) Close() error {
 	return s.file.Close()
 }
+
+func (s StorageFile) DeleteByIds(ctx context.Context, batch []string, user auth.User) error {
+	return fmt.Errorf("method is not supported")
+}

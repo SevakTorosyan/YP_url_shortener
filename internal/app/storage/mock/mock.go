@@ -46,3 +46,7 @@ func (s *StorageMock) GetItemsByUserID(serverAddress string, user auth.User) ([]
 		},
 	}, nil
 }
+
+func (s StorageMock) DeleteByIds(ctx context.Context, batch []string, user auth.User) error {
+	return nil
+}

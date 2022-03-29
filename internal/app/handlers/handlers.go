@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"compress/flate"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -52,6 +53,12 @@ func (h *Handler) GetShortLink(w http.ResponseWriter, r *http.Request) {
 	item, err := h.storage.GetItem(id)
 	if err != nil {
 		http.Error(w, "Incorrect link", http.StatusBadRequest)
+		return
+	}
+
+	if item.IsDeleted {
+		w.WriteHeader(http.StatusGone)
+
 		return
 	}
 
@@ -190,12 +197,28 @@ func (h *Handler) SaveBatch(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(viewItems)
 }
 
+func (h *Handler) DeleteItems(w http.ResponseWriter, r *http.Request) {
+	user, ok := r.Context().Value(myMiddleware.UserCtxValue).(auth.User)
+	if !ok {
+		http.Error(w, "can not define user", http.StatusInternalServerError)
+		return
+	}
+	items := make([]string, 0)
+	if err := json.NewDecoder(r.Body).Decode(&items); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	go h.storage.DeleteByIds(context.Background(), items, user)
+	w.WriteHeader(http.StatusAccepted)
+}
+
 func (h *Handler) registerRoutes() {
 	h.Get("/{shortLink}", h.GetShortLink)
 	h.Post("/", h.SaveShortLink)
 	h.Post("/api/shorten/batch", h.SaveBatch)
 	h.Post("/api/shorten", h.SaveShortLinkJSON)
 	h.Get("/api/user/urls", h.GetAllItems)
+	h.Delete("/api/user/urls", h.DeleteItems)
 	h.Get("/ping", h.PingDB)
 }
 
