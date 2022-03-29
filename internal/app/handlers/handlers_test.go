@@ -32,7 +32,7 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string, reqBody
 }
 
 func TestHandlers(t *testing.T) {
-	r := NewHandler(mock.NewMockStorage(), config.InitConfig())
+	r := NewHandler(mock.NewMockStorage(), config.InitConfig(), nil)
 
 	ts := httptest.NewServer(r)
 	defer ts.Close()

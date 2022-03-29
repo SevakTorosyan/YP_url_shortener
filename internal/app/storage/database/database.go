@@ -31,9 +31,9 @@ func NewStorageDatabase(timeout time.Duration, dbDSN string) (*StorageDatabase, 
 func (s StorageDatabase) GetItem(shortURL string) (storage.ItemRepository, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), s.connTimeout)
 	defer cancel()
-	row := s.conn.QueryRow(ctx, "SELECT u.short_url, u.original_url, u.user_id FROM urls u WHERE short_url = $1", shortURL)
+	row := s.conn.QueryRow(ctx, "SELECT u.short_url, u.original_url, u.user_id, u.is_deleted FROM urls u WHERE short_url = $1", shortURL)
 	item := storage.ItemRepository{}
-	err := row.Scan(&item.ShortURL, &item.OriginalURL, &item.User.ID)
+	err := row.Scan(&item.ShortURL, &item.OriginalURL, &item.User.ID, &item.IsDeleted)
 	if err != nil {
 		return storage.ItemRepository{}, err
 	}
@@ -95,17 +95,17 @@ func (s *StorageDatabase) SaveBatch(ctx context.Context, batch []storage.BatchRe
 		itemRepository.ShortURL = utils.GenerateRandomString(16)
 		items = append(items, itemRepository)
 	}
-	if err := insertItems(ctx, s.conn, items); err != nil {
+	if err := s.insertItems(ctx, items); err != nil {
 		return nil, err
 	}
 
 	return items, nil
 }
 
-func insertItems(ctx context.Context, conn *pgx.Conn, items []storage.ItemRepository) error {
+func (s *StorageDatabase) insertItems(ctx context.Context, items []storage.ItemRepository) error {
 	b := &pgx.Batch{}
 
-	tx, err := conn.Begin(ctx)
+	tx, err := s.conn.Begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -154,4 +154,29 @@ func (s StorageDatabase) Close() error {
 	defer cancel()
 
 	return s.conn.Close(ctx)
+}
+
+func (s StorageDatabase) DeleteByIds(batchItems []string, user auth.User) error {
+	ctx, cancel := context.WithTimeout(context.Background(), s.connTimeout)
+	defer cancel()
+
+	tx, err := s.conn.Begin(ctx)
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback(ctx)
+	batch := &pgx.Batch{}
+	for _, itemID := range batchItems {
+		batch.Queue("UPDATE urls SET is_deleted = true WHERE user_id = $1 AND short_url = $2", user.ID, itemID)
+	}
+
+	batchResults := tx.SendBatch(ctx, batch)
+	_, err = batchResults.Exec()
+	if err != nil {
+		return err
+	}
+	batchResults.Close()
+
+	return tx.Commit(ctx)
 }

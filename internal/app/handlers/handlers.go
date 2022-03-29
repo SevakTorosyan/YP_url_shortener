@@ -10,6 +10,7 @@ import (
 	myMiddleware "github.com/SevakTorosyan/YP_url_shortener/internal/app/middleware"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage/database"
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/worker"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"io"
@@ -25,15 +26,17 @@ type Response struct {
 }
 
 type Handler struct {
-	storage storage.Storage
-	config  *config.Config
+	storage        storage.Storage
+	config         *config.Config
+	deleteWorkerCh chan worker.ItemsDeleter
 	*chi.Mux
 }
 
-func NewHandler(storage storage.Storage, config *config.Config) *Handler {
+func NewHandler(storage storage.Storage, config *config.Config, deleteWorkerCh chan worker.ItemsDeleter) *Handler {
 	handler := &Handler{
 		storage,
 		config,
+		deleteWorkerCh,
 		chi.NewMux(),
 	}
 
@@ -52,6 +55,12 @@ func (h *Handler) GetShortLink(w http.ResponseWriter, r *http.Request) {
 	item, err := h.storage.GetItem(id)
 	if err != nil {
 		http.Error(w, "Incorrect link", http.StatusBadRequest)
+		return
+	}
+
+	if item.IsDeleted {
+		w.WriteHeader(http.StatusGone)
+
 		return
 	}
 
@@ -190,12 +199,28 @@ func (h *Handler) SaveBatch(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(viewItems)
 }
 
+func (h *Handler) DeleteItems(w http.ResponseWriter, r *http.Request) {
+	user, ok := r.Context().Value(myMiddleware.UserCtxValue).(auth.User)
+	if !ok {
+		http.Error(w, "can not define user", http.StatusInternalServerError)
+		return
+	}
+	items := make([]string, 0)
+	if err := json.NewDecoder(r.Body).Decode(&items); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
+	h.deleteWorkerCh <- worker.NewItemsDeleter(items, user)
+}
+
 func (h *Handler) registerRoutes() {
 	h.Get("/{shortLink}", h.GetShortLink)
 	h.Post("/", h.SaveShortLink)
 	h.Post("/api/shorten/batch", h.SaveBatch)
 	h.Post("/api/shorten", h.SaveShortLinkJSON)
 	h.Get("/api/user/urls", h.GetAllItems)
+	h.Delete("/api/user/urls", h.DeleteItems)
 	h.Get("/ping", h.PingDB)
 }
 
