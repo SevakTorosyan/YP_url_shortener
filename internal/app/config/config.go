@@ -2,25 +2,22 @@ package config
 
 import (
 	"flag"
-	"log"
-	"sync"
-
 	"github.com/caarlos0/env/v6"
+	"log"
 )
 
-var lock = &sync.Mutex{}
-
-type config struct {
+type Config struct {
 	ServerAddress   string `env:"SERVER_ADDRESS" envDefault:"localhost:8080"`
 	BaseURL         string `env:"BASE_URL" envDefault:"http://localhost:8080"`
 	FileStoragePath string `env:"FILE_STORAGE_PATH"`
 	ShortLinkLength int    `env:"SHORT_LINK_LENGTH" envDefault:"15"`
+	SecretKey       string `env:"SECRET_KEY" envDefault:"52fdfc072182654f163f5f0f9a621d72"`
+	DatabaseDSN     string `env:"DATABASE_DSN"`
+	DatabaseTimeout int64  `env:"DATABASE_TIMEOUT" envDefault:"5"`
 }
 
-var configInstance *config
-
-func initConfig() *config {
-	configInstance = &config{}
+func InitConfig() *Config {
+	configInstance := &Config{}
 
 	err := env.Parse(configInstance)
 
@@ -31,18 +28,10 @@ func initConfig() *config {
 	flag.StringVar(&configInstance.ServerAddress, "a", configInstance.ServerAddress, "Server address")
 	flag.StringVar(&configInstance.BaseURL, "b", configInstance.BaseURL, "Base URL")
 	flag.StringVar(&configInstance.FileStoragePath, "f", configInstance.FileStoragePath, "File storage path")
+	flag.StringVar(&configInstance.DatabaseDSN, "d", configInstance.DatabaseDSN, "Database connection properties")
+	flag.Int64Var(&configInstance.DatabaseTimeout, "dt", configInstance.DatabaseTimeout, "Database connection timeout")
+
 	flag.Parse()
-
-	return configInstance
-}
-
-func GetInstance() *config {
-	if configInstance == nil {
-		lock.Lock()
-		defer lock.Unlock()
-
-		return initConfig()
-	}
 
 	return configInstance
 }

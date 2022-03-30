@@ -1,28 +1,74 @@
 package main
 
 import (
+	"context"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/config"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/handlers"
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage"
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage/database"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage/file"
-	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage/mapper"
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage/memory"
+	"github.com/jackc/pgx/v4"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
+	"time"
 )
 
 func main() {
-	cfg := config.GetInstance()
-	var handler *handlers.Handler
+	cfg := config.InitConfig()
 
-	if cfg.FileStoragePath == "" {
-		handler = handlers.NewHandler(mapper.NewStorageMap())
-	} else {
-		storage, err := file.NewStorageFile(cfg.FileStoragePath)
+	s := initStorage(cfg)
+	defer s.Close()
+	handler := handlers.NewHandler(s, cfg)
+	log.Fatal(http.ListenAndServe(cfg.ServerAddress, handler))
+}
 
-		if err != nil {
-			log.Fatal("An error occurred during storage initialization")
-		}
-		handler = handlers.NewHandler(storage)
+func initDatabase(databaseURL string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	conn, err := pgx.Connect(ctx, databaseURL)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	log.Fatal(http.ListenAndServe(cfg.ServerAddress, handler))
+	defer cancel()
+	defer conn.Close(ctx)
+
+	sqlFile, err := ioutil.ReadFile("db/init.sql")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	requests := strings.Split(string(sqlFile), ";")
+
+	for _, request := range requests {
+		_, err := conn.Exec(ctx, request)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+}
+
+func initStorage(cfg *config.Config) storage.Storage {
+	if cfg.DatabaseDSN != "" {
+		initDatabase(cfg.DatabaseDSN)
+		stg, err := database.NewStorageDatabase(time.Duration(cfg.DatabaseTimeout)*time.Second, cfg.DatabaseDSN)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		return stg
+	}
+	if cfg.FileStoragePath != "" {
+		stg, err := file.NewStorageFile(cfg.FileStoragePath)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		return stg
+	}
+
+	return memory.NewStorageMap()
 }

@@ -1,22 +1,19 @@
 package file
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/auth"
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage"
 	"os"
 
-	"github.com/SevakTorosyan/YP_url_shortener/internal/app/config"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/utils"
 )
 
 type StorageFile struct {
 	file  *os.File
-	items map[string]string
-}
-
-type Item struct {
-	ShortLink string `json:"short_link"`
-	Link      string `json:"link"`
+	items map[string]storage.ItemRepository
 }
 
 func NewStorageFile(filename string) (*StorageFile, error) {
@@ -27,37 +24,53 @@ func NewStorageFile(filename string) (*StorageFile, error) {
 	}
 
 	storageFile := &StorageFile{file: file}
-	storageFile.items = make(map[string]string)
+	storageFile.items = make(map[string]storage.ItemRepository)
 	storageFile.loadItems()
 
 	return storageFile, nil
 }
 
-func (s *StorageFile) GetItem(shortLink string) (string, error) {
-	link, ok := s.items[shortLink]
+func (s *StorageFile) GetItem(shortURL string) (storage.ItemRepository, error) {
+	link, ok := s.items[shortURL]
 
 	if !ok {
-		return "", fmt.Errorf("link not found")
+		return storage.ItemRepository{}, fmt.Errorf("link not found")
 	}
 
 	return link, nil
 }
 
-func (s *StorageFile) SaveItem(link string) (string, error) {
+func (s *StorageFile) SaveItem(originalURL string, user auth.User) (storage.ItemRepository, error) {
 	encoder := json.NewEncoder(s.file)
-	shortLink := utils.GenerateRandomString(config.GetInstance().ShortLinkLength)
-	item := Item{shortLink, link}
-	s.items[shortLink] = link
+	shortURL := utils.GenerateRandomString(15)
+	item := storage.ItemRepository{ShortURL: shortURL, OriginalURL: originalURL, User: user}
+	s.items[shortURL] = item
 
 	if err := encoder.Encode(item); err != nil {
-		return "", err
+		return storage.ItemRepository{}, err
 	}
 
-	return shortLink, nil
+	return item, nil
+}
+
+func (s *StorageFile) GetItemsByUserID(serverAddress string, user auth.User) ([]storage.ItemRepository, error) {
+	items := make([]storage.ItemRepository, 0)
+
+	for shortLink, item := range s.items {
+		if item.User.ID == user.ID {
+			items = append(items, storage.ItemRepository{ShortURL: serverAddress + shortLink, OriginalURL: item.OriginalURL})
+		}
+	}
+
+	return items, nil
+}
+
+func (s *StorageFile) SaveBatch(ctx context.Context, batch []storage.BatchRequest, user auth.User) ([]storage.ItemRepository, error) {
+	return []storage.ItemRepository{}, fmt.Errorf("method is not supported")
 }
 
 func (s *StorageFile) loadItems() {
-	item := &Item{}
+	item := &storage.ItemRepository{}
 	decoder := json.NewDecoder(s.file)
 
 	for {
@@ -67,6 +80,14 @@ func (s *StorageFile) loadItems() {
 			break
 		}
 
-		s.items[item.ShortLink] = item.Link
+		s.items[item.ShortURL] = *item
 	}
+}
+
+func (s StorageFile) Ping() error {
+	return nil
+}
+
+func (s StorageFile) Close() error {
+	return s.file.Close()
 }

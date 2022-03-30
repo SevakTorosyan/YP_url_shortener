@@ -1,6 +1,7 @@
-package mapper
+package memory
 
 import (
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/auth"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage/mock"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -30,9 +31,9 @@ func TestStorageSlice_SaveItem(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			storageMap := mock.StorageMock{}
-			shortLink, err := storageMap.SaveItem(tt.value)
+			item, err := storageMap.SaveItem(tt.value, auth.User{})
 
-			assert.Equal(t, tt.want.shortLink, shortLink)
+			assert.Equal(t, tt.want.shortLink, item.ShortURL)
 			assert.Equal(t, tt.want.err, err)
 		})
 	}
@@ -63,8 +64,8 @@ func TestStorageSlice_GetItem(t *testing.T) {
 		storageMap := mock.NewMockStorage()
 
 		t.Run(tt.name, func(t *testing.T) {
-			link, err := storageMap.GetItem(tt.value)
-			assert.Equal(t, tt.want.link, link)
+			item, err := storageMap.GetItem(tt.value)
+			assert.Equal(t, tt.want.link, item.OriginalURL)
 			assert.Equal(t, tt.want.err, err)
 		})
 	}

@@ -1,14 +1,19 @@
 package handlers
 
 import (
+	"compress/flate"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/auth"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/config"
+	myMiddleware "github.com/SevakTorosyan/YP_url_shortener/internal/app/middleware"
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage"
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage/database"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"io"
 	"net/http"
-
-	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage"
-	"github.com/go-chi/chi/v5"
 )
 
 type Request struct {
@@ -21,14 +26,21 @@ type Response struct {
 
 type Handler struct {
 	storage storage.Storage
+	config  *config.Config
 	*chi.Mux
 }
 
-func NewHandler(storage storage.Storage) *Handler {
+func NewHandler(storage storage.Storage, config *config.Config) *Handler {
 	handler := &Handler{
 		storage,
+		config,
 		chi.NewMux(),
 	}
+
+	handler.Use(myMiddleware.Login(handler.config.SecretKey))
+	handler.Use(myMiddleware.Decompress())
+	compressor := middleware.NewCompressor(flate.BestCompression)
+	handler.Use(compressor.Handler)
 	handler.registerRoutes()
 
 	return handler
@@ -37,34 +49,54 @@ func NewHandler(storage storage.Storage) *Handler {
 func (h *Handler) GetShortLink(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "shortLink")
 
-	originalLink, err := h.storage.GetItem(id)
+	item, err := h.storage.GetItem(id)
 	if err != nil {
 		http.Error(w, "Incorrect link", http.StatusBadRequest)
 		return
 	}
 
-	w.Header().Set("Location", originalLink)
+	responseItem := item.ToItemView()
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Location", responseItem.OriginalURL)
 	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
 func (h *Handler) SaveShortLink(w http.ResponseWriter, r *http.Request) {
+	user, ok := r.Context().Value(myMiddleware.UserCtxValue).(auth.User)
+	if !ok {
+		http.Error(w, "can not define user", http.StatusInternalServerError)
+		return
+	}
+
 	b, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	shortLink, err := h.storage.SaveItem(string(b))
-	if err != nil {
+	item, err := h.storage.SaveItem(string(b), user)
+	if err != nil && !errors.Is(err, database.ErrItemAlreadyExists) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	itemView := item.ToItemView()
 
-	w.WriteHeader(http.StatusCreated)
-	fmt.Fprintf(w, "%s/%s", config.GetInstance().BaseURL, shortLink)
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	if errors.Is(err, database.ErrItemAlreadyExists) {
+		w.WriteHeader(http.StatusConflict)
+	} else {
+		w.WriteHeader(http.StatusCreated)
+	}
+	fmt.Fprintf(w, "%s/%s", h.config.BaseURL, itemView.ShortURL)
 }
 
 func (h *Handler) SaveShortLinkJSON(w http.ResponseWriter, r *http.Request) {
+	user, ok := r.Context().Value(myMiddleware.UserCtxValue).(auth.User)
+	if !ok {
+		http.Error(w, "can not define user", http.StatusInternalServerError)
+		return
+	}
 	requestBody := Request{}
 
 	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
@@ -72,23 +104,101 @@ func (h *Handler) SaveShortLinkJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortLink, err := h.storage.SaveItem(requestBody.URL)
+	item, err := h.storage.SaveItem(requestBody.URL, user)
+	if err != nil && !errors.Is(err, database.ErrItemAlreadyExists) {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	itemView := item.ToItemView()
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	if errors.Is(err, database.ErrItemAlreadyExists) {
+		w.WriteHeader(http.StatusConflict)
+	} else {
+		w.WriteHeader(http.StatusCreated)
+	}
+	json.NewEncoder(w).Encode(GetResponse(itemView, h.config.BaseURL))
+}
+
+func (h *Handler) GetAllItems(w http.ResponseWriter, r *http.Request) {
+	user, ok := r.Context().Value(myMiddleware.UserCtxValue).(auth.User)
+	if !ok {
+		http.Error(w, "can not define user", http.StatusInternalServerError)
+		return
+	}
+
+	items, err := h.storage.GetItemsByUserID(h.config.BaseURL+"/", user)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+
+		return
+	}
+
+	if len(items) == 0 {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		http.Error(w, "", http.StatusNoContent)
+		return
+	}
+
+	viewItems := make([]storage.ItemView, 0)
+	for _, item := range items {
+		viewItems = append(viewItems, item.ToItemView())
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(viewItems)
+}
+
+func (h *Handler) PingDB(w http.ResponseWriter, r *http.Request) {
+	err := h.storage.Ping()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) SaveBatch(w http.ResponseWriter, r *http.Request) {
+	user, ok := r.Context().Value(myMiddleware.UserCtxValue).(auth.User)
+	if !ok {
+		http.Error(w, "can not define user", http.StatusInternalServerError)
+		return
+	}
+	batchRequests := make([]storage.BatchRequest, 0)
+
+	if err := json.NewDecoder(r.Body).Decode(&batchRequests); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	items, err := h.storage.SaveBatch(r.Context(), batchRequests, user)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	viewItems := make([]storage.BatchItemView, 0)
+	for _, item := range items {
+		viewItems = append(viewItems, item.ToBatchItemView(h.config.BaseURL))
+	}
+
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(GetResponse(shortLink))
+	json.NewEncoder(w).Encode(viewItems)
 }
 
 func (h *Handler) registerRoutes() {
 	h.Get("/{shortLink}", h.GetShortLink)
 	h.Post("/", h.SaveShortLink)
+	h.Post("/api/shorten/batch", h.SaveBatch)
 	h.Post("/api/shorten", h.SaveShortLinkJSON)
+	h.Get("/api/user/urls", h.GetAllItems)
+	h.Get("/ping", h.PingDB)
 }
 
-func GetResponse(shortLink string) Response {
-	return Response{Result: fmt.Sprintf("%s/%s", config.GetInstance().BaseURL, shortLink)}
+func GetResponse(itemView storage.ItemView, baseURL string) Response {
+	return Response{Result: fmt.Sprintf("%s/%s", baseURL, itemView.ShortURL)}
 }

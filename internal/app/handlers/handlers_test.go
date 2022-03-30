@@ -32,7 +32,7 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string, reqBody
 }
 
 func TestHandlers(t *testing.T) {
-	r := NewHandler(mock.NewMockStorage())
+	r := NewHandler(mock.NewMockStorage(), config.InitConfig())
 
 	ts := httptest.NewServer(r)
 	defer ts.Close()
@@ -58,7 +58,7 @@ func TestHandlers(t *testing.T) {
 			name: "Short link creating",
 			want: want{
 				code:        http.StatusCreated,
-				response:    config.GetInstance().BaseURL + "/" + mock.ShortLink,
+				response:    r.config.BaseURL + "/" + mock.ShortLink,
 				contentType: "text/plain; charset=utf-8",
 			},
 			request: request{
@@ -71,7 +71,7 @@ func TestHandlers(t *testing.T) {
 			name: "Short link creating JSON",
 			want: want{
 				code:        http.StatusCreated,
-				response:    fmt.Sprintf("{\"result\":\"%s/asdjnd3242\"}\n", config.GetInstance().BaseURL),
+				response:    fmt.Sprintf("{\"result\":\"%s/asdjnd3242\"}\n", r.config.BaseURL),
 				contentType: "application/json; charset=utf-8",
 			},
 			request: request{
