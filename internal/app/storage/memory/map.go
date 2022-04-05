@@ -57,3 +57,7 @@ func (s StorageMap) Ping() error {
 func (s StorageMap) Close() error {
 	return nil
 }
+
+func (s StorageMap) DeleteByIds(batch []string, user auth.User) error {
+	return fmt.Errorf("method is not supported")
+}

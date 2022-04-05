@@ -8,6 +8,7 @@ import (
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage/database"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage/file"
 	"github.com/SevakTorosyan/YP_url_shortener/internal/app/storage/memory"
+	"github.com/SevakTorosyan/YP_url_shortener/internal/app/worker"
 	"github.com/jackc/pgx/v4"
 	"io/ioutil"
 	"log"
@@ -21,7 +22,9 @@ func main() {
 
 	s := initStorage(cfg)
 	defer s.Close()
-	handler := handlers.NewHandler(s, cfg)
+	deletingWorkerCh := make(chan worker.ItemsDeleter)
+	handler := handlers.NewHandler(s, cfg, deletingWorkerCh)
+	go worker.DeletingWorker(deletingWorkerCh, s)
 	log.Fatal(http.ListenAndServe(cfg.ServerAddress, handler))
 }
 
